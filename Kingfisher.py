@@ -24,6 +24,10 @@ from PIL import Image, ImageDraw
 from pytz import timezone
 
 version="0.08 Vials"
+###useful resources
+#for colours
+#www.htmlcsscolor.com/hex
+
 
 #keys for the map updating function
 factions = { "horrorshow":(188, 0, 0), "faceless":(155, 89, 182), "forerunners":(231, 76, 60), "authority":(109, 130, 187),"leeches":(137, 90, 0),"eclipse":(0, 126, 133), "neutral":(255,255,255), "independent":(136, 0, 21), "sharks":(82, 95, 157), "hearth":(255, 215, 0) }
@@ -1115,7 +1119,11 @@ async def tag(ctx, tag=None, content1=None, *,content2=None):
             gc = gspread.authorize(credentials)
             RefSheet = gc.open_by_key('1LOZkywwxIWR41e8h-xIMFGNGMe7Ro2cOYBez_xWm6iU')
             tagsSheet = RefSheet.worksheet("Tags")
-            target_tag=tagsSheet.find(content1.casefold())
+            target_tag=tagsSheet.find(content1.casefold()) #change to findall, discard non-titles
+            print(f"{target_tag.row},{target_tag.col}")
+            if target_tag.col!=1:
+                print("tag column error!")
+                return
             if ctx.message.author.id==tagsSheet.cell(target_tag.row, target_tag.col+2).value or ctx.message.author.id=="138340069311381505":
                 tagsSheet.update_cell(target_tag.row,target_tag.col+1, content2)
                 tags = tagsSheet.get_all_values()
@@ -1433,7 +1441,7 @@ async def show(ctx, cape=None):
 @account.command(pass_context=True,description="Use this to add your cape to the database and gain access to the other commands. Your cape name is your 'key'.")
 async def make(ctx,cape=None,amount=0,income=0):
     loc=ctx.message.server.id
-    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861"):
+    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861") and (ctx.message.channel.id != "537152965375688719"):
         await client.say("BoK only operates in #faction-actions!")
         return
     if cape==None:
@@ -1464,7 +1472,7 @@ async def make(ctx,cape=None,amount=0,income=0):
 @account.command(aliases=["u"],pass_context=True,description="Keep track of expenses and gains with this.")
 async def update(ctx,cape, amount):
     loc=ctx.message.server.id
-    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861"):
+    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861") and (ctx.message.channel.id != "537152965375688719"):
         await client.say("BoK only operates in #faction-actions!")
         return
     with open(f"cash{loc}.txt") as f:
@@ -1487,7 +1495,7 @@ async def update(ctx,cape, amount):
 @account.command(aliases=["s"],pass_context=True,description="Send money to another account.")
 async def send(ctx,cape,target, amount):        
     loc=ctx.message.server.id
-    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861"):
+    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861") and (ctx.message.channel.id != "537152965375688719"):
         await client.say("BoK only operates in #faction-actions!")
         return
     with open(f"cash{loc}.txt") as f:
@@ -1517,7 +1525,7 @@ async def send(ctx,cape,target, amount):
 @account.command(aliases=["i"],pass_context=True,description="Adjust your periodic income here. Use the weekly amount.")
 async def income(ctx,cape, amount):
     loc=ctx.message.server.id
-    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861"):
+    if (ctx.message.channel.id != "478240151987027978") and (ctx.message.channel.id != "435874236297379861") and (ctx.message.channel.id != "537152965375688719"):
         await client.say("BoK only operates in #faction-actions!")
         return
     with open(f"cash{loc}.txt") as f:
