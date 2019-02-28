@@ -10,7 +10,9 @@ import os
 import platform
 import random
 import re
+import sched
 import time
+import threading
 import traceback
 
 import aiohttp
@@ -20,26 +22,47 @@ import pytz
 from discord.ext import commands
 from discord.ext.commands import Bot
 from oauth2client.service_account import ServiceAccountCredentials
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageColor
 from pytz import timezone
 
-version="0.08 Vials"
+version="0.1 Roll macros"
 ###useful resources
 #for colours
 #www.htmlcsscolor.com/hex
 
 
 #keys for the map updating function
-factions = { "horrorshow":(188, 0, 0), "faceless":(155, 89, 182), "forerunners":(231, 76, 60), "authority":(109, 130, 187),"leeches":(137, 90, 0),"eclipse":(0, 126, 133), "neutral":(255,255,255), "independent":(136, 0, 21), "sharks":(82, 95, 157), "hearth":(255, 215, 0) }
-areas = [(57,98 ),(157,106 ),(229,105),(322,103),(416,103),(526,63),(604,46),(695,48),(781,81),(886,67),(971,68),(1044,62),(66,211),(163,206),(247,203),(322,198),(396,198),(492,154),(636,132),(681,145),(781,129),(885,129),(955,163),(1015,163),(1065,140),(69,293),(153,293),(261,293),(355,293),(433,293),(544,243),(807,222),(895,215),(998,238),(1060,222),(1139,179),(165,368),(258,383),(347,401),(403,364),(500,341),(557,325),(604,293),(668,285),(759,322),(817,269),(933,293),(1018,313),(155,450),(268,477),(478,445),(538,413),(589,401),(658,346),(695,323),(814,334),(861,322 ),(971,373 ),(1061,371 ),(444,495 ),(557,502 ),(637,477 ),(669,417 ),(724,383 ),(736,483 ),(757,453 ),(818,439 ),(882,415 ),(500,622 ),(595,592 ),(674,570 ),(718,540 ),(795,484 ),(843,464 ),(431,706 ),(510,682 ),(567,648 ),(444,780)]
+factions = { "horrorshow":(188, 0, 0), "faceless":(155, 89, 182), "forerunners":(231, 76, 60), "authority":(109, 130, 187),"leeches":(137, 90, 0),"eclipse":(0, 126, 133), 
+"neutral":(255,255,255), "independent":(136, 0, 21), "sharks":(82, 95, 157), "hearth":(255, 215, 0) }
+areas = [(57,98 ),(157,106 ),(229,105),(322,103),(416,103),(526,63),(604,46),(695,48),(781,81),(886,67),(971,68),(1044,62),(66,211),(163,206),(247,203),
+(322,198),(396,198),(492,154),(636,132),(681,145),(781,129),(885,129),(955,163),(1015,163),(1065,140),(69,293),(153,293),(261,293),(355,293),(433,293),(544,243),
+(807,222),(895,215),(998,238),(1060,222),(1139,179),(165,368),(258,383),(347,401),(403,364),(500,341),(557,325),(604,293),(668,285),(759,322),(817,269),(933,293),
+(1018,313),(155,450),(268,477),(478,445),(538,413),(589,401),(658,346),(695,323),(814,334),(861,322 ),(971,373 ),(1061,371 ),(444,495 ),(557,502 ),(637,477 ),(669,417 ),
+(724,383 ),(736,483 ),(757,453 ),(818,439 ),(882,415 ),(500,622 ),(595,592 ),(674,570 ),(718,540 ),(795,484 ),(843,464 ),(431,706 ),(510,682 ),(567,648 ),(444,780)]
+
 #gh stuff
-gh_factions={"deplorables":(241, 196, 15),"avalon":(173, 20, 87),"children":(155, 89, 182),"court":(101, 111, 255),"dominion":(192, 49, 53),   "uplift":(26, 151, 73), "neutral":(255,255,255), "independent":(163, 145, 108)}
-#old factions: "division":(76, 140, 255), "prestige":(179, 86, 243), "daybreak":(236,42,18), "elite":(241, 196, 15),
-gh_areas=[(100,122),(132.67,120),(192,118.6666667),(234.6666667,140.6666667),(268.6666667,165.3333333),(313.3333333,129.3333333),(372.6666667,126),(429.3333333,60),(473.3333333,20),(458.6666667,81.33333333),(498.6666667,53.33333333),(477.3333333,130),(482,162.6666667),(492,217.3333333),(415.3333333,207.3333333),(369.3333333,192),(293.3333333,194.6666667),(226.6666667,203.3333333),(166.6666667,184),(150.6666667,229.3333333),(113.3333333,224.6666667),(114,283.3333333),(181.3333333,234),(215.3333333,228.6666667),(262.6666667,238),(223.3333333,286),(379.3333333,230.6666667),(440.6666667,272.6666667),(464.6666667,241.3333333),(498,291.3333333),(490,320),(410,308),(351.3333333,278),(357.3333333,318),(250.6666667,322),(214.6666667,338),(134.6666667,309.3333333),(170.6666667,344.6666667),(166.6666667,378),(166,428),(239.3333333,392),(244.6666667,428),(278,376.6666667),(318,387.3333333),(316.6666667,433.3333333),(393.3333333,352.6666667),(359.3333333,412.6666667),(422.6666667,387.3333333),(458.6666667,378),(490.6666667,394.6666667),(494,458.6666667),(430.6666667,420.6666667),(439.3333333,459.3333333),(350.6666667,475.3333333),(271.3333333,494),(229.3333333,499.3333333),(190,484.6666667),(148,460),(174.6666667,509.3333333),(190.6666667,545.3333333),(278,546.6666667),(331.3333333,524),(380,553.3333333),(422.6666667,525.3333333),(455.3333333,512.6666667),(498,525.3333333)]
+gh_factions={"zenith":(222,21,228),"fixers":ImageColor.getrgb("#6584ff"),"demons":ImageColor.getrgb("#ff7a00"),"plastics":ImageColor.getrgb("#ff69b4"),"avalon":(173, 20, 87),
+"children":(155, 89, 182),"uplift":(26, 151, 73), "neutral":(255,255,255), "independent":(163, 145, 108)}
+
+#old factions: "division":(76, 140, 255), "prestige":(179, 86, 243), "daybreak":(236,42,18), "elite":(241, 196, 15),"deplorables":(241, 196, 15),
+#"court":(101, 111, 255),"dominion":(192, 49, 53),
+
+gh_areas=[(100,122),(132.67,120),(192,118.6666667),(234.6666667,140.6666667),(268.6666667,165.3333333),(313.3333333,129.3333333),(372.6666667,126),(429.3333333,60),
+(473.3333333,20),(458.6666667,81.33333333),(498.6666667,53.33333333),(477.3333333,130),(482,162.6666667),(492,217.3333333),(415.3333333,207.3333333),(369.3333333,192),
+(293.3333333,194.6666667),(226.6666667,203.3333333),(166.6666667,184),(150.6666667,229.3333333),(113.3333333,224.6666667),(114,283.3333333),(181.3333333,234),
+(215.3333333,228.6666667),(262.6666667,238),(223.3333333,286),(379.3333333,230.6666667),(440.6666667,272.6666667),(464.6666667,241.3333333),(498,291.3333333),(490,320),
+(410,308),(351.3333333,278),(357.3333333,318),(250.6666667,322),(214.6666667,338),(134.6666667,309.3333333),(170.6666667,344.6666667),(166.6666667,378),(166,428),
+(239.3333333,392),(244.6666667,428),(278,376.6666667),(318,387.3333333),(316.6666667,433.3333333),(393.3333333,352.6666667),(359.3333333,412.6666667),(422.6666667,387.3333333),
+(458.6666667,378),(490.6666667,394.6666667),(494,458.6666667),(430.6666667,420.6666667),(439.3333333,459.3333333),(350.6666667,475.3333333),(271.3333333,494),
+(229.3333333,499.3333333),(190,484.6666667),(148,460),(174.6666667,509.3333333),(190.6666667,545.3333333),(278,546.6666667),(331.3333333,524),(380,553.3333333),
+(422.6666667,525.3333333),(455.3333333,512.6666667),(498,525.3333333)]
+
 typ_colours={"Bash":0x0137f6,"Pierce":0xffa500,"Cut":0xb22649,"Freeze":0x00ecff,"Shock":0xd6ff00,"Rend":0x9937a5,"Burn":0x0fe754, "Poison":0x334403}
 muted_usr=[]
 
-asyncio.set_event_loop(asyncio.new_event_loop())
+
+clientloop=asyncio.new_event_loop()
+asyncio.set_event_loop(clientloop)
 owner = ["138340069311381505"] #hyper#4131
 
 logging.basicConfig(level=logging.INFO)
@@ -60,10 +83,15 @@ scope = ['https://spreadsheets.google.com/feeds',
 credentials = ServiceAccountCredentials.from_json_keyfile_name('gspread.json', scope)
 gc = gspread.authorize(credentials)
 
+feed=[[],[],[]]
 #kingfisher reference doc
 RefSheet = gc.open_by_key('1LOZkywwxIWR41e8h-xIMFGNGMe7Ro2cOYBez_xWm6iU')
 sheet = RefSheet.worksheet("Wounds")
-feed = sheet.get_all_values()
+feed[0] = sheet.get_all_values()
+sheet_SD=RefSheet.worksheet("Wounds_SD")
+feed[1] = sheet_SD.get_all_values()
+sheet_WD=RefSheet.worksheet("Wounds_WD")
+feed[2] = sheet_WD.get_all_values()
 tagsSheet = RefSheet.worksheet("Tags")
 tags = tagsSheet.get_all_values()
 perksSheet = RefSheet.worksheet("Perks")
@@ -77,7 +105,10 @@ triggerfeed = triggerSheet.get_all_values()
 VialDoc = gc.open_by_key("1yksmYY7q1GKx4tXVpb7oSxffgEh--hOvXkDwLVgCdlg")
 sheet = VialDoc.worksheet("Full Vials")
 vialfeed = sheet.get_all_values()
+sPlanner = sched.scheduler(time.time, time.sleep) #class sched.scheduler(timefunc=time.monotonic, delayfunc=time.sleep)
 
+#global variables
+macros={}
 
 # Here you can modify the bot's prefix and description and whether it sends help in direct messages or not.
 client = Bot(description=f"Thinkerbot version {version}", command_prefix=">", pm_help = False, case_insensitive=True)
@@ -99,6 +130,23 @@ async def on_ready():
     global b_task2
     b_task=client.loop.create_task(account_decay())
     b_task2=client.loop.create_task(rank_decay())
+    
+    #resume scheduled reminders
+    loop = asyncio.get_event_loop()
+    with open(f"reminders.txt",mode="r+") as f:
+        reminders = json.load(f)
+        for i in reminders:
+            timer=i['time']
+            #print(time.time()-i['time'])
+            content=i['content']
+            destination=client.get_channel(i['destination'])
+            sPlanner.enterabs(timer, 10, asyncio.run_coroutine_threadsafe , argument=(client.send_message(destination,content),loop,), kwargs={})
+    #end resume
+    
+    #roll macros
+    global macros
+    with open(f"roll_macros.txt",mode="r") as f:
+        macros = json.load(f)
     return 
 
 
@@ -147,6 +195,8 @@ async def sid(loc):
         sid="segovia"
     elif loc=="434729592352276480":
         sid="test"
+    elif loc=="457290411698814980":
+        sid="la"
     else:
         sid="undefined"
     return sid
@@ -262,9 +312,10 @@ async def nest(ctx):
     await client.say("https://discord.gg/gxQVAbA")
 
 #TODO: Conserve over restarts
-#TODO: ping all people who reacted the the reminder     
+#TODO: ping all people who reacted the the reminder  
 @client.command(pass_context=True, description="Reminds you of shit. Time should be specified as 13s37m42h12d leaving away time steps as desired.", aliases=["rem"])
 async def remind(ctx,time,*message):
+    loop = asyncio.get_event_loop()
     timer=0
     chunk=re.compile("\d+[shmd]*")
     chunks=chunk.findall(time)
@@ -283,18 +334,35 @@ async def remind(ctx,time,*message):
             time=int(i[:-1])*60*60*24
             timer=timer+time
     await client.add_reaction(ctx.message,'\N{Timer Clock}')
-    await asyncio.sleep(timer)
-    await client.say(f"{ctx.message.author.mention}: {' '.join(message)}")
+    content=f"{ctx.message.author.mention}: {' '.join(message)}"
+    #coro=client.send_message(ctx.message.channel,content)
+    sPlanner.enter(timer, 10, asyncio.run_coroutine_threadsafe , argument=(client.send_message(ctx.message.channel,content),loop,), kwargs={})
+    print(sPlanner.queue)
+
+
 
 @client.command(pass_context=True, description="Shuts the bot down. Owner only.",hidden=True)
 async def die(ctx):
     if ctx.message.author.id not in owner:
-        await client.say("No. Fuck off.")
+        await client.say("No. Fuck off.") 
         return
     global b_task
     global b_task2
     b_task.cancel()
     b_task2.cancel()
+    
+    schedstop.set()
+    reminders=[]
+    #if sPlanner.empty()==False:
+    with open(f"reminders.txt",mode="w+") as f:
+        f.seek(0)
+        f.truncate()
+        queue=sPlanner.queue
+        for i in queue:
+            reminders.append({"time":i[0],'content':i.argument[0].gi_frame.f_locals['content'],'destination':i.argument[0].gi_frame.f_locals['destination'].id})
+        json.dump(reminders,f)
+    #print(reminders)
+
     await client.close()
 
 #TODO: fix    
@@ -347,7 +415,11 @@ async def updateFeed(ctx):
     gc = gspread.authorize(credentials)
     RefSheet = gc.open_by_key('1LOZkywwxIWR41e8h-xIMFGNGMe7Ro2cOYBez_xWm6iU')
     sheet = RefSheet.worksheet("Wounds")
-    feed = sheet.get_all_values()
+    feed[0] = sheet.get_all_values()
+    sheet_SD=RefSheet.worksheet("Wounds_SD")
+    feed[1] = sheet_SD.get_all_values()
+    sheet_WD=RefSheet.worksheet("Wounds_WD")
+    feed[2] = sheet_WD.get_all_values()
     tagsSheet = RefSheet.worksheet("Tags")
     tags = tagsSheet.get_all_values()
     VialDoc = gc.open_by_key("1yksmYY7q1GKx4tXVpb7oSxffgEh--hOvXkDwLVgCdlg")
@@ -545,7 +617,8 @@ async def claim(ctx,faction = None,square:int = None):
     else:
         sid="test"
     if (ctx.message.channel.id != "358409511838547979") and (ctx.message.channel.id != "435874236297379861") and (ctx.message.channel.id != "478240151987027978"):
-        await client.send_message(discord.User(id=owner[0]),f"Claiming in {ctx.message.channel}: {ctx.message.author.name}")
+        #await client.send_message(discord.User(id=owner[0]),f"Claiming in {ctx.message.channel}: {ctx.message.author.name}")
+        await client.send_message(f"Can only claim in #faction-actions!")
         return
     cacher=random.randint(1, 100000000000)
     if faction=="factions":
@@ -553,6 +626,9 @@ async def claim(ctx,faction = None,square:int = None):
             await client.say(", ".join(list(factions.keys())))
             return
         elif sid=="gh":
+            await client.say(", ".join(list(gh_factions.keys())))
+            return
+        elif sid=="test":
             await client.say(", ".join(list(gh_factions.keys())))
             return
     if faction == None and square == None:
@@ -575,9 +651,50 @@ async def worm(*args):
 @client.command(pass_context=True,description="Repeats famous catchphrases.", aliases=["Lysa"])
 async def lysa(ctx):
     sweat_emoji = discord.utils.get(client.get_all_emojis(), name='sweats')
-    phraselist = ["oof", "Uuh", "Wew", "Weary", "sweats", "Rip", "nice", "Unfortunate", sweat_emoji, "listen\nit's fine"]
+    phraselist = ["oof", "Uh", "Wew", "Weary", "sweats", "Rip", "nice", "Unfortunate", sweat_emoji, "listen\nit's fine"]
 	
     await client.say(random.choice(phraselist))
+
+
+# unsure if right 
+# '>eve' command variables inits 
+eve_max1 = 6
+eve_max2 = 5
+eve_f1 = []
+eve_f2 = []
+Eve_v = "v0.5 Eve"
+# Rolls 6d5 and 6d6 in two columns	
+@client.command(pass_context=True, description="Everyone's personal rolls",hidden=True)
+async def eve(ctx, args = 0):
+    global eve_f1
+    global eve_f2
+    var = ""
+    if args == 1:
+        eve_f1 = []
+        for _ in range(6):
+            eve_f1.append(random.randint(1, eve_max1))
+        eve_f1.sort()
+        var ="1"
+    elif args == 2:
+        eve_f2 = []
+        for _ in range(6):
+            eve_f2.append(random.randint(1, eve_max2))
+        eve_f2.sort()
+        var ="2"	
+    elif args == 0:
+        eve_f1 = []
+        eve_f2 = []
+        for _ in range(6):
+            eve_f1.append(random.randint(1, eve_max1))
+        eve_f1.sort()
+        for _ in range(6):
+            eve_f2.append(random.randint(1, eve_max2))
+        eve_f2.sort()
+        var ="r"
+    elif args == 3:
+        var ="s"
+    
+    await client.say( f"-----**{var}**-----\n|{eve_f1[0]} {eve_f1[1]} |  {eve_f2[0]} {eve_f2[1]}|\n|{eve_f1[2]} {eve_f1[3]} |  {eve_f2[2]} {eve_f2[3]}|\n|{eve_f1[4]} {eve_f1[5]} |  {eve_f2[4]} {eve_f2[5]}|")
 
 @client.command(description="Forgot a simple URL? I got you.")
 async def wiki(*args):
@@ -617,7 +734,7 @@ async def stopspam(ctx, i:int):
         await client.say("Need something deleted? <@&310528314412630027>.")
         return
     try:
-        await client.purge_from(ctx.message.channel,limit=i,check=is_me)
+        await client.purge_from(ctx.message.channel,limit=i)
     except discord.Forbidden:
         await client.say("Insufficient priviliges.")
 
@@ -713,6 +830,7 @@ async def toggle(ctx, req_role="Active"):
         else:
             await client.add_roles(user, role)
             await client.say("Remember, spamming 1v1s is punishable by death.")
+    
     elif req_role.casefold()=="Smithy".casefold():
         role = discord.utils.get(user.server.roles, name="Smithy ⚔️")
         if role==None:
@@ -723,6 +841,17 @@ async def toggle(ctx, req_role="Active"):
         else:
             await client.add_roles(user, role)
             await client.say("Welcome to the Smithy.")
+
+    elif req_role.casefold()=="news".casefold():
+        role = discord.utils.get(user.server.roles, name="news")
+        if role==None:
+            await client.say("No news role defined.")
+        if role in user.roles:
+            await client.remove_roles(user, role)
+            await client.say("Who reads this stuff anyways?")
+        else:
+            await client.add_roles(user, role)
+            await client.say("All caught up.")
             
     elif req_role.casefold()=="RED".casefold():
         role = discord.utils.get(user.server.roles, name="RED")
@@ -755,17 +884,23 @@ async def toggle(ctx, req_role="Active"):
             await client.add_roles(user, role)
             await client.add_reaction(ctx.message,"\U0001f6e1")
             await client.say("Go Team Blue Shield!")
-            
-    elif req_role.casefold()=="oet".casefold():
-        role = discord.utils.get(user.server.roles, name="OET")
+
+    elif req_role.casefold()=="DEEP".casefold():
+        role = discord.utils.get(user.server.roles, name="BLUE")
+        opprole= discord.utils.get(user.server.roles, name="RED")
         if role==None:
-            await client.say("No OET role defined.")
+            await client.say("No DEEP role defined.")
+        if opprole in user.roles:
+            await client.say("Oy! No peeking, you cheeky fuck!")
+            return
         if role in user.roles:
             await client.remove_roles(user, role)
             await client.add_reaction(ctx.message,bye_emoji)
         else:
             await client.add_roles(user, role)
-            await client.say("Welcome to Operation Elizabeth Tower.")
+            await client.add_reaction(ctx.message,"🌃")
+            await client.say("To boldly go where no man has gone before.")
+    
     elif req_role.casefold()=="interlude".casefold():
         role = discord.utils.get(user.server.roles, name="Interlude")
         if role==None:
@@ -786,6 +921,18 @@ async def toggle(ctx, req_role="Active"):
                 description="You like hurting people, huh? Use this to roll your wound effect. >Damage_Type Severity [Aim] [Number]"
                  " Use >wound 'Hit Vitals' to find specfic wounds.")
 async def wound(ctx, severity="Moderate", aim="Any", repeats=1,**typus):
+    loc=await sid(ctx.message.server.id)
+    #0 is wd20, 1 is skitterdice, 2 is original wd
+    if loc=="gh":
+        f=0
+    elif loc=="detroit":
+        f=1 #detroit uses skitterdice
+    elif loc=="la":
+        f=2 #todo: add the original wd, switch this to 2
+    elif loc=="test":
+        f=2 
+    else:
+        f=0 #default is wd20
     if aim.isdigit():
         repeats=int(aim)
         aim="Any"
@@ -815,7 +962,7 @@ async def wound(ctx, severity="Moderate", aim="Any", repeats=1,**typus):
     if "typus" in typus: #kwarg
         typ=typus['typus']
     elif (ctx.invoked_with.casefold() == "Wound".casefold()) or (ctx.invoked_with.casefold() == "tag".casefold()):
-        for i in feed:
+        for i in feed[f]:
             if i[3].casefold()==severity.casefold(): #severity is actually the wound we're looking for here
                 await client.say(f"**{i[3]}**: {i[4]} *({i[0]}, {i[1]}, {i[2]})*")
                 return True
@@ -862,7 +1009,7 @@ async def wound(ctx, severity="Moderate", aim="Any", repeats=1,**typus):
             elif aimt.casefold()=="l":
                 aimt="Legs"
         typlist=[]
-        for i in feed:
+        for i in feed[f]:
             if i[0].casefold()==typ.casefold():
                 if i[1].casefold()==severity.casefold():
                     if exclusive==True:
@@ -896,10 +1043,70 @@ async def wound(ctx, severity="Moderate", aim="Any", repeats=1,**typus):
     return True
 
 
+@client.group(pass_context=True,description="Save macros for use with the >roll function. Usage is >macro save $title 3d20+4 3d6x4 - then use >roll $title.",alias="m")
+async def macro(ctx):
+    if ctx.invoked_subcommand is None:
+        await client.say('Available commands: save, delete, update, show.')
+
+@macro.command(pass_context=True)
+async def save(ctx,title,*formulas):
+    global macros
+    if not title[0]=="$":
+        await client.say("First letter of your title HAS to be the $ sign!")
+        return
+    user=ctx.message.author.id
+    if not user in macros:
+        macros[user]={}
+    macros[user][title]=[]
+    for i in formulas:
+        macros[user][title].append(i)
+    with open(f"roll_macros.txt",mode="w+") as f:
+        json.dump(macros,f)
+    await client.say(f"{title} has been saved.")
+    return
+
+@macro.command(pass_context=True)
+async def delete(ctx,title):
+    global macros
+    user=ctx.message.author.id
+    macros[user].pop(title)
+    await client.say(f"{title} has been removed from your macros.")
+    with open(f"roll_macros.txt",mode="w+") as f:
+        json.dump(macros,f)
+    return
+
+@macro.command(pass_context=True)
+async def update(ctx,title,*formulas):
+    global macros
+    user=ctx.message.author.id
+    macros[user].pop(title)
+    macros[user][title]=[]
+    for i in formulas:
+        macros[user][title].append(i)
+    with open(f"roll_macros.txt",mode="w+") as f:
+        json.dump(macros,f)
+    await client.say(f"{title} has been updated.")
+    return
+
+@macro.command(pass_context=True)
+async def show(ctx,title=None,user=None):
+    user=ctx.message.author.id
+    macro_list=[]
+    for i in macros[user]:
+        macro_list.append(f"Title: {i}, Formulas: {' '.join(macros[user][i])}\n")
+    await client.say(f"Saved macros for {ctx.message.author.name} are:\n{''.join(macro_list)}")
+    return
+
 #dice rolling.
-#TODO: Add memorized rolls, roll series, independent dice
+#TODO: independent dice
 @client.command(pass_context=True,description="See >tag roll for help",aliases=["r","R"])
 async def roll(ctx,formula="3d20+4",*comment):
+    if formula[0]=="$":
+        user=ctx.message.author.id
+        if formula in macros[user]:
+            for i in macros[user][formula]:
+                await ctx.invoke(roll,formula=i)
+        return
     formula_in=formula
     #print(comment)
     #print(type(comment))
@@ -1077,10 +1284,9 @@ async def roll(ctx,formula="3d20+4",*comment):
         out_roll.append(f" #{' '.join(comment)}")
     await client.say(''.join(out_roll))
 
-
 tag_muted=False #global
 
-#tags are text blocks, useful for re-posting common infomration like character appearance etc. Also memes.
+#tags are text blocks, useful for re-posting common infomration like character appearance etc. Also memes. So many memes.
 @client.command(pass_context=True,description="Memorize Texts. Add a tag by writing >tag create title content; update by >tag update title newcontent; delete by >tag delete title",aliases=["effect","Effect","Tag"])
 @commands.check(no_pm)
 async def tag(ctx, tag=None, content1=None, *,content2=None):
@@ -1090,7 +1296,7 @@ async def tag(ctx, tag=None, content1=None, *,content2=None):
     elif tag.casefold()=="create".casefold():
         global tag_muted
         if tag_muted==True:
-            await client.say("Disabled until you retards calm down.")
+            await client.say("Disabled until you fuckers calm down.")
             return
         elif (content1==None) or (content2==None):
             await client.say("Need a name and content for the tag.")
@@ -1111,6 +1317,22 @@ async def tag(ctx, tag=None, content1=None, *,content2=None):
     elif tag_muted==False:
         if tag.casefold()=="list":
             await client.say("List of all current tags: https://docs.google.com/spreadsheets/d/e/2PACX-1vRjroKacZBQrkIEayrhHuFtA_5mAL_C48Y-4taCjZ5k0mNXAPTi5diZAiZ-7l-Uai5xvbNomF_s1-0m/pubhtml")
+        elif tag.casefold()=="owner":
+            gc = gspread.authorize(credentials)
+            RefSheet = gc.open_by_key('1LOZkywwxIWR41e8h-xIMFGNGMe7Ro2cOYBez_xWm6iU')
+            tagsSheet = RefSheet.worksheet("Tags")
+            try:
+                target_tag=tagsSheet.find(content1.casefold())
+            except gspread.exceptions.CellNotFound:
+                await client.say(f"Tag not found!")
+                return
+            ownerID=tagsSheet.cell(target_tag.row,target_tag.col+2).value
+            tagowner=discord.utils.get(client.get_all_members(), id=str(ownerID))
+            if tagowner is None:
+                await client.say(f"{content1} is owned by an unknown user.")
+                return
+            await client.say(f"{content1} is owned by {tagowner.name}.")
+            return
         elif tag.casefold()=="delete":
             gc = gspread.authorize(credentials)
             RefSheet = gc.open_by_key('1LOZkywwxIWR41e8h-xIMFGNGMe7Ro2cOYBez_xWm6iU')
@@ -1646,6 +1868,13 @@ async def rank_decay():
         
 
 ###Bot runs here
+schedstop = threading.Event()
+def timer():
+    while not schedstop.is_set():
+        sPlanner.run(blocking=False)
+        time.sleep(1)
+schedthread = threading.Thread(target=timer)
+schedthread.start()
 with open("Token.txt", 'r') as f:
         token=f.read()
 client.run(token)
